@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Iceland South Coast — 8-Day Route</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --basalt:#0e1218; --ash:#151c26; --card:#1b2431; --edge:#26303f;
+    --ice:#8fd6ea; --moss:#8fbf6f; --ember:#e8663a; --fog:#cbd4de; --dim:#7e8a99;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;background:var(--basalt);color:var(--fog);
+    font-family:'Inter',system-ui,sans-serif}
+  #app{display:flex;flex-direction:column;height:100dvh}
+
+  /* ---------- header ---------- */
+  header{padding:10px 14px 8px;display:flex;align-items:baseline;gap:10px;
+    border-bottom:1px solid var(--edge);background:var(--ash);z-index:1200}
+  header h1{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:20px;
+    letter-spacing:.04em;text-transform:uppercase;color:#fff}
+  header .sub{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--dim)}
+
+  /* ---------- map ---------- */
+  #map{flex:1 1 52%;min-height:0;background:#0a0e13}
+  .leaflet-container{background:#0a0e13;font:inherit}
+  .leaflet-popup-content-wrapper{background:var(--card);color:var(--fog);border-radius:10px;
+    border:1px solid var(--edge);box-shadow:0 8px 24px rgba(0,0,0,.5)}
+  .leaflet-popup-tip{background:var(--card)}
+  .leaflet-popup-content{margin:10px 14px;font-size:12.5px;line-height:1.45}
+  .leaflet-popup-content b{font-family:'Barlow Condensed',sans-serif;font-size:15px;
+    letter-spacing:.03em;color:#fff}
+  .pp-tag{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;
+    padding:1px 6px;border-radius:4px;margin-top:5px}
+  .stop-dot{border-radius:50%;border:2px solid #0a0e13;box-shadow:0 0 0 1.5px currentColor}
+
+  /* ---------- day ribbon (signature) ---------- */
+  #ribbon{display:flex;gap:8px;overflow-x:auto;padding:10px 12px;background:var(--ash);
+    border-top:1px solid var(--edge);scroll-snap-type:x proximity;scrollbar-width:none}
+  #ribbon::-webkit-scrollbar{display:none}
+  .marker-post{flex:0 0 auto;scroll-snap-align:center;min-width:74px;padding:7px 10px 6px;
+    background:var(--card);border:1px solid var(--edge);border-radius:8px;cursor:pointer;
+    text-align:left;transition:border-color .15s,background .15s;position:relative}
+  .marker-post::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;
+    border-radius:0 2px 2px 0;background:var(--edge);transition:background .15s}
+  .marker-post .d{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--dim);
+    letter-spacing:.08em}
+  .marker-post .t{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:14px;
+    color:var(--fog);line-height:1.15;margin-top:1px;white-space:nowrap}
+  .marker-post.active{border-color:var(--ice);background:#20303c}
+  .marker-post.active::before{background:var(--ice)}
+  .marker-post.active .t{color:#fff}
+
+  /* ---------- deck ---------- */
+  #deck{flex:0 0 auto;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;
+    scrollbar-width:none;background:var(--basalt)}
+  #deck::-webkit-scrollbar{display:none}
+  .day-card{flex:0 0 100%;scroll-snap-align:start;padding:12px 14px 16px;
+    max-height:34dvh;overflow-y:auto}
+  .day-head{display:flex;align-items:baseline;gap:8px;margin-bottom:8px}
+  .day-head .num{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ice);
+    letter-spacing:.1em}
+  .day-head h2{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:19px;
+    letter-spacing:.03em;color:#fff;text-transform:uppercase}
+  .day-head .km{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:10px;
+    color:var(--dim)}
+  .stop{display:grid;grid-template-columns:16px 1fr;gap:0 10px;padding:7px 0;cursor:pointer}
+  .stop + .stop{border-top:1px solid #161d27}
+  .stop .pin{width:11px;height:11px;border-radius:50%;margin-top:4px;
+    box-shadow:0 0 0 2px #0a0e13, 0 0 0 3.5px currentColor}
+  .stop .name{font-size:13.5px;font-weight:600;color:#e8edf3;line-height:1.3}
+  .stop .name .time{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:400;
+    color:var(--dim);margin-left:6px}
+  .stop .note{font-size:11.5px;color:var(--dim);line-height:1.45;margin-top:2px}
+  .badge{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:9px;
+    padding:1.5px 6px;border-radius:4px;margin:3px 4px 0 0;letter-spacing:.03em}
+  .b-drone{background:rgba(143,191,111,.16);color:var(--moss);border:1px solid rgba(143,191,111,.4)}
+  .b-nodrone{background:rgba(126,138,153,.12);color:var(--dim);border:1px solid #333e4d}
+  .b-volcano{background:rgba(232,102,58,.14);color:var(--ember);border:1px solid rgba(232,102,58,.45)}
+  .b-camp{background:rgba(143,214,234,.1);color:var(--ice);border:1px solid rgba(143,214,234,.35)}
+
+  /* satellite toggle */
+  #satBtn{position:absolute;top:10px;left:10px;z-index:1000;background:rgba(21,28,38,.88);
+    border:1px solid var(--edge);border-radius:8px;padding:7px 11px;cursor:pointer;
+    backdrop-filter:blur(4px);font-family:'IBM Plex Mono',monospace;font-size:10px;
+    letter-spacing:.06em;color:var(--fog)}
+  #satBtn.on{border-color:var(--ice);color:var(--ice)}
+
+  /* legend chip on map */
+  .legend{position:absolute;top:10px;right:10px;z-index:1000;background:rgba(21,28,38,.88);
+    border:1px solid var(--edge);border-radius:8px;padding:7px 10px;backdrop-filter:blur(4px);
+    font-family:'IBM Plex Mono',monospace;font-size:9.5px;line-height:1.8;color:var(--dim)}
+  .legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+
+  @media (prefers-reduced-motion: no-preference){
+    .route-live{animation:drive 1.6s linear infinite}
+    @keyframes drive{to{stroke-dashoffset:-26}}
+  }
+
+  /* ---------- desktop ---------- */
+  @media (min-width:900px){
+    #app{display:grid;grid-template-columns:440px 1fr;grid-template-rows:auto auto 1fr;height:100vh}
+    header{grid-column:1/3}
+    #ribbon{grid-column:1;grid-row:2;flex-wrap:wrap;border-right:1px solid var(--edge)}
+    #deck{grid-column:1;grid-row:3;border-right:1px solid var(--edge)}
+    .day-card{max-height:none;height:100%;padding:16px 18px}
+    #map{grid-column:2;grid-row:2/4;height:100%}
+    header h1{font-size:24px}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Iceland · South Coast</h1>
+    <span class="sub">8 DAYS · CAMPERVAN · OCT 2026</span>
+  </header>
+
+  <div id="map">
+    <button id="satBtn" aria-pressed="false">SATELLITE</button>
+    <div class="legend">
+      <div><i style="background:var(--ice)"></i>today's drive</div>
+      <div><i style="background:var(--moss)"></i>drone zone</div>
+      <div><i style="background:var(--ember)"></i>volcano</div>
+      <div><i style="background:var(--fog)"></i>stop / camp</div>
+    </div>
+  </div>
+
+  <nav id="ribbon" aria-label="Days"></nav>
+  <div id="deck"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+// ---------- data ----------
+const DAYS = [
+ {t:"Land · Camper · Stock up",km:"KEF → RVK · 60 km",stops:[
+  {n:"Happy Campers",c:[63.9704,-22.5100],tm:"arrival",note:"Van pickup — free KEF shuttle. Open 7am–7pm; check your landing time.",tags:["camp"]},
+  {n:"Bónus (Fitjar)",c:[63.9726,-22.5435],tm:"",note:"Big grocery shop — cheapest chain in Iceland. Duty-free booze BEFORE leaving airport.",tags:[]},
+  {n:"Reykjavík Eco Campsite",c:[64.1462,-21.8760],tm:"night",note:"Year-round, 24h kitchen, next to Laugardalslaug pool.",tags:["camp"]}]},
+ {t:"Golden Circle + Kerið",km:"~250 km loop",stops:[
+  {n:"Þingvellir",c:[64.2822,-21.0764],tm:"9:30",note:"Walk between tectonic plates. Free entry, small parking fee.",tags:["nodrone"]},
+  {n:"Geysir / Haukadalur",c:[64.3104,-20.3013],tm:"12:00",note:"Strokkur erupts every 5–10 min. Free.",tags:["nodrone"]},
+  {n:"Gullfoss",c:[64.3271,-20.1199],tm:"14:00",note:"Free entry AND free parking — rare combo.",tags:["nodrone"]},
+  {n:"Kerið Crater",c:[64.0413,-20.8851],tm:"16:00",note:"Red volcanic crater lake, ~600 ISK, 15-min rim walk.",tags:["volcano"]},
+  {n:"Camping Selfoss",c:[63.9330,-20.9888],tm:"night",note:"Gas station + Bónus nearby for restock.",tags:["camp"]}]},
+ {t:"Waterfalls + First Drone Zone",km:"~130 km",stops:[
+  {n:"Seljalandsfoss",c:[63.6156,-19.9886],tm:"10:00",note:"Walk behind the falls — rain gear. Gljúfrabúi cave 5 min up the path.",tags:["nodrone"]},
+  {n:"Skógafoss",c:[63.5321,-19.5114],tm:"13:00",note:"Camera only (banned-sites list). Kvernufoss next door = legal drone alternative.",tags:["nodrone"]},
+  {n:"Sólheimasandur DC-3",c:[63.4909,-19.3634],tm:"15:00",note:"Vast black-sand desert, ~40-min flat walk to plane wreck. 750 ISK parking.",tags:["drone","chase"]},
+  {n:"Vik Camping",c:[63.4193,-18.9955],tm:"night",note:"Arrive early for power hookups; Krónan across the street.",tags:["camp"]}]},
+ {t:"Vík & Black Sand",km:"~25 km · flex day",stops:[
+  {n:"Reynisfjara Beach",c:[63.4057,-19.0716],tm:"10:00",note:"Via Route 215 (10 min west of Vík) — basalt columns + Hálsanefshellir cave. Paid parking. Sneaker waves are deadly: never turn your back. Dyrhólaey next door = no drone.",tags:["nodrone"]},
+  {n:"Víkurfjara Beach",c:[63.4143,-19.0104],tm:"13:00",note:"Vík-side beach with Reynisdrangar sea-stack views — free parking lot at the west end. Laundry / storm-buffer afternoon.",tags:[]},
+  {n:"Vik Camping (night 2)",c:[63.4193,-18.9955],tm:"night",note:"Or swap today for the Katla ice-cave tour (~$150–180 pp).",tags:["camp"]}]},
+ {t:"Lava Field + Canyon",km:"~75 km",stops:[
+  {n:"Eldhraun Lava Field",c:[63.6769,-18.1408],tm:"9:30",note:"Endless moss-covered lava on an empty straight road. Free parking. Don't step on the moss.",tags:["drone","chase"]},
+  {n:"Fjaðrárgljúfur",c:[63.7713,-18.1718],tm:"11:30",note:"2 km rim walk over the 100 m canyon. 1000 ISK parking, food truck. Check trail status.",tags:["drone"]},
+  {n:"Kirkjubær II Camping",c:[63.7928,-18.0500],tm:"night",note:"Paid 3-min showers — use the town pool instead.",tags:["camp"]}]},
+ {t:"Glaciers — Prime Drone Day",km:"~140 km",stops:[
+  {n:"Skaftafell Visitor Centre",c:[64.0165,-16.9665],tm:"9:30",note:"Svartifoss basalt-falls hike (~1.5 h). National park — drone stays grounded.",tags:["nodrone"]},
+  {n:"Jökulsárlón",c:[64.0784,-16.2306],tm:"14:00",note:"Iceberg lagoon. Fly EARLY before wind builds. Seals in the water.",tags:["drone"]},
+  {n:"Diamond Beach",c:[64.0443,-16.1777],tm:"16:00",note:"THE signature aerial: blue ice on black sand.",tags:["drone"]},
+  {n:"Skaftafell Campground",c:[64.0155,-16.9716],tm:"night",note:"Free showers — best facilities on the route.",tags:["camp"]}]},
+ {t:"Return West + Paid Experience",km:"~330 km",stops:[
+  {n:"Skaftafell glacier hike",c:[64.0165,-16.9665],tm:"9:00",note:"Best-value paid slot: guided glacier walk ~$100–130 pp.",tags:[]},
+  {n:"Mýrdalssandur straight",c:[63.4550,-18.6500],tm:"drive",note:"Dead-straight Ring Road across black plains — bonus van-chase stretch.",tags:["drone","chase"]},
+  {n:"Camping Selfoss",c:[63.9330,-20.9888],tm:"night",note:"Stop at anything you skipped on the way.",tags:["camp"]}]},
+ {t:"Volcano Morning + Fly Out",km:"~140 km",stops:[
+  {n:"Fagradalsfjall — P2",c:[63.8587,-22.2787],tm:"8:30",note:"Hike onto 2021–23 lava, ~500 m to first viewpoint. Drone IF airspace open — check kort.gis.is + almannavarnir.is same morning. App-pay parking, no toilets.",tags:["volcano","drone"]},
+  {n:"Happy Campers — return",c:[63.9704,-22.5100],tm:"13:00",note:"Return van fueled + emptied; shuttle to KEF.",tags:["camp"]}]}
+];
+
+// Ring Road shaping waypoints so the line hugs the actual drive
+const SHAPE = {
+ 0:[[63.985,-22.605],[63.9704,-22.510],[63.9726,-22.5435],[64.02,-22.35],[64.09,-22.05],[64.1462,-21.876]],
+ 1:[[64.1462,-21.876],[64.20,-21.45],[64.2822,-21.0764],[64.24,-20.78],[64.3104,-20.3013],[64.3271,-20.1199],[64.30,-20.30],[64.16,-20.55],[64.0413,-20.8851],[63.9330,-20.9888]],
+ 2:[[63.9330,-20.9888],[63.83,-20.40],[63.752,-20.224],[63.6156,-19.9886],[63.5321,-19.5114],[63.4909,-19.3634],[63.4193,-18.9955]],
+ 3:[[63.4193,-18.9955],[63.4160,-19.0450],[63.4057,-19.0716],[63.4143,-19.0104],[63.4193,-18.9955]],
+ 4:[[63.4193,-18.9955],[63.455,-18.65],[63.53,-18.35],[63.6769,-18.1408],[63.7713,-18.1718],[63.7928,-18.0500]],
+ 5:[[63.7928,-18.0500],[63.88,-17.65],[63.95,-17.25],[64.0165,-16.9665],[64.0443,-16.1777],[64.0784,-16.2306],[64.0155,-16.9716]],
+ 6:[[64.0155,-16.9716],[63.88,-17.65],[63.7928,-18.05],[63.6769,-18.14],[63.53,-18.35],[63.455,-18.65],[63.4193,-18.9955],[63.5321,-19.5114],[63.6156,-19.9886],[63.752,-20.224],[63.9330,-20.9888]],
+ 7:[[63.9330,-20.9888],[63.95,-21.55],[63.93,-21.95],[63.86,-22.20],[63.8587,-22.2787],[63.90,-22.42],[63.9704,-22.510]]
+};
+
+// ---------- map ----------
+const map = L.map('map',{zoomControl:false,attributionControl:true})
+  .setView([63.9,-19.6],7);
+const darkLayer=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+  maxZoom:19, attribution:'&copy; OpenStreetMap &copy; CARTO'}).addTo(map);
+const satLayer=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{
+  maxZoom:19, maxNativeZoom:18, attribution:'Imagery &copy; Esri &amp; contributors'});
+satLayer.on('tileerror',()=>console.warn('Satellite tile failed — check network/ad-blocker for server.arcgisonline.com'));
+const satLabels=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',{
+  maxZoom:19, attribution:''});
+L.control.zoom({position:'bottomright'}).addTo(map);
+
+const satBtn=document.getElementById('satBtn');
+let satOn=false;
+satBtn.addEventListener('click',()=>{
+  satOn=!satOn;
+  satBtn.classList.toggle('on',satOn);
+  satBtn.setAttribute('aria-pressed',String(satOn));
+  if(satOn){map.removeLayer(darkLayer);satLayer.addTo(map);satLabels.addTo(map);}
+  else{map.removeLayer(satLayer);map.removeLayer(satLabels);darkLayer.addTo(map);}
+  if(liveSeg)liveSeg.bringToFront();
+  markers.forEach(m=>m.bringToFront());
+});
+
+// ---------- real-road routing (OSRM, free, no key) ----------
+const geomCache={};
+let dimLayer=L.polyline(Object.values(SHAPE).flat(),{color:'#3a4a5c',weight:3,opacity:.55}).addTo(map);
+async function roadGeom(i){
+  if(geomCache[i])return geomCache[i];
+  const pts=SHAPE[i].map(p=>p[1]+','+p[0]).join(';');
+  try{
+    const r=await fetch(`https://router.project-osrm.org/route/v1/driving/${pts}?overview=full&geometries=geojson`);
+    const j=await r.json();
+    if(j.code==='Ok')geomCache[i]=j.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]);
+  }catch(e){/* offline or blocked: keep simplified line */}
+  return geomCache[i]||SHAPE[i];
+}
+function refreshDim(){
+  const all=[];for(let k=0;k<DAYS.length;k++)all.push(geomCache[k]||SHAPE[k]);
+  map.removeLayer(dimLayer);
+  dimLayer=L.polyline(all,{color:'#3a4a5c',weight:3,opacity:.55}).addTo(map);
+  dimLayer.bringToBack();
+}
+
+let liveSeg=null, markers=[], liveAll=[], curDay=0;
+function colorFor(s){
+  if(s.tags.includes('volcano'))return '#e8663a';
+  if(s.tags.includes('drone'))return '#8fbf6f';
+  if(s.tags.includes('camp'))return '#8fd6ea';
+  return '#cbd4de';
+}
+function badgesHTML(s){
+  let h='';
+  if(s.tags.includes('drone'))h+='<span class="pp-tag" style="background:rgba(143,191,111,.16);color:#8fbf6f">🚁 DRONE OK</span> ';
+  if(s.tags.includes('chase'))h+='<span class="pp-tag" style="background:rgba(143,191,111,.16);color:#8fbf6f">VAN-CHASE</span> ';
+  if(s.tags.includes('nodrone'))h+='<span class="pp-tag" style="background:rgba(126,138,153,.12);color:#7e8a99">NO DRONE</span> ';
+  if(s.tags.includes('volcano'))h+='<span class="pp-tag" style="background:rgba(232,102,58,.14);color:#e8663a">VOLCANO</span> ';
+  return h;
+}
+function clearLive(){
+  if(liveSeg){map.removeLayer(liveSeg);liveSeg=null;}
+  liveAll.forEach(l=>map.removeLayer(l));liveAll=[];
+  markers.forEach(m=>map.removeLayer(m));markers=[];
+}
+function addStops(list){
+  list.forEach(s=>{
+    const col=colorFor(s);
+    markers.push(L.circleMarker(s.c,{radius:7,color:col,weight:2,fillColor:col,fillOpacity:.9})
+      .addTo(map).bindPopup(`<b>${s.n}</b><br>${s.note}<br>${badgesHTML(s)}`));
+  });
+}
+async function showDay(i){
+  curDay=i;
+  document.querySelectorAll('.marker-post').forEach(el=>el.classList.toggle('active',+el.dataset.day===i));
+  clearLive();
+  if(i===-1){ // ALL DAYS
+    map.flyToBounds(L.latLngBounds(Object.values(SHAPE).flat()).pad(.12),{duration:.6});
+    DAYS.forEach(d=>addStops(d.stops));
+    for(let k=0;k<DAYS.length;k++){
+      if(curDay!==-1)return;
+      const g=await roadGeom(k);
+      if(curDay!==-1)return;
+      liveAll.push(L.polyline(g,{color:'#8fd6ea',weight:3.5,opacity:.9}).addTo(map));
+    }
+    refreshDim();
+    return;
+  }
+  liveSeg=L.polyline(SHAPE[i],{color:'#8fd6ea',weight:4,opacity:.95,
+    dashArray:'10 8',className:'route-live'}).addTo(map);
+  addStops(DAYS[i].stops);
+  map.flyToBounds(L.latLngBounds(SHAPE[i]).pad(.22),{duration:.6});
+  const deckEl=document.getElementById('deck');
+  deckEl.scrollTo({left:deckEl.clientWidth*i,behavior:'smooth'});
+  const g=await roadGeom(i);            // upgrade to real roads
+  if(curDay===i&&liveSeg){liveSeg.setLatLngs(g);refreshDim();}
+}
+
+// ---------- ribbon + deck ----------
+const ribbon=document.getElementById('ribbon');
+const deck=document.getElementById('deck');
+
+const allBtn=document.createElement('button');
+allBtn.className='marker-post';
+allBtn.dataset.day='-1';
+allBtn.innerHTML=`<div class="d">FULL ROUTE</div><div class="t">All days</div>`;
+allBtn.onclick=()=>showDay(-1);
+ribbon.appendChild(allBtn);
+
+DAYS.forEach((d,i)=>{
+  const b=document.createElement('button');
+  b.className='marker-post';
+  b.dataset.day=String(i);
+  b.innerHTML=`<div class="d">DAY ${String(i+1).padStart(2,'0')}</div><div class="t">${d.t.split(' + ')[0].split(' — ')[0].split(' · ')[0]}</div>`;
+  b.onclick=()=>showDay(i);
+  ribbon.appendChild(b);
+
+  const card=document.createElement('section');
+  card.className='day-card';
+  let stopsHTML='';
+  d.stops.forEach((s,si)=>{
+    let bd='';
+    if(s.tags.includes('drone'))bd+='<span class="badge b-drone">🚁 drone ok</span>';
+    if(s.tags.includes('chase'))bd+='<span class="badge b-drone">van-chase</span>';
+    if(s.tags.includes('nodrone'))bd+='<span class="badge b-nodrone">no drone</span>';
+    if(s.tags.includes('volcano'))bd+='<span class="badge b-volcano">volcano</span>';
+    if(s.tags.includes('camp'))bd+='<span class="badge b-camp">camp / base</span>';
+    stopsHTML+=`<div class="stop" data-day="${i}" data-stop="${si}">
+      <div class="pin" style="background:${colorFor(s)};color:${colorFor(s)}"></div>
+      <div><div class="name">${s.n}${s.tm?`<span class="time">${s.tm}</span>`:''}</div>
+      <div class="note">${s.note}</div>${bd}</div></div>`;
+  });
+  card.innerHTML=`<div class="day-head"><span class="num">DAY ${String(i+1).padStart(2,'0')}</span>
+    <h2>${d.t}</h2><span class="km">${d.km}</span></div>${stopsHTML}`;
+  deck.appendChild(card);
+});
+
+deck.addEventListener('click',e=>{
+  const st=e.target.closest('.stop'); if(!st)return;
+  const s=DAYS[+st.dataset.day].stops[+st.dataset.stop];
+  map.flyTo(s.c,12,{duration:.7});
+  if(curDay===+st.dataset.day)markers[+st.dataset.stop]?.openPopup();
+});
+
+// swipe the deck → switch day
+let deckTimer;
+deck.addEventListener('scroll',()=>{
+  clearTimeout(deckTimer);
+  deckTimer=setTimeout(()=>{
+    const i=Math.round(deck.scrollLeft/deck.clientWidth);
+    if(i!==curDay)showDay(i);
+  },120);
+});
+
+showDay(0);
+// warm the road-geometry cache in the background
+(async()=>{for(let k=0;k<DAYS.length;k++)await roadGeom(k);refreshDim();})();
+</script>
+</body>
+</html>
